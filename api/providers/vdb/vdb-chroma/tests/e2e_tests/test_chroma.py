@@ -1,3 +1,4 @@
+import uuid
 from typing import override
 
 import chromadb
@@ -29,6 +30,11 @@ class ChromaVectorTest(AbstractVectorTest):
         # chroma dos not support full text searching
         hits_by_full_text = self.vector.search_by_full_text(query=get_example_text())
         assert len(hits_by_full_text) == 0
+
+    @override
+    def text_exists(self):
+        super().text_exists()
+        assert not self.vector.text_exists(str(uuid.uuid4()))
 
 
 def test_chroma_vector(setup_mock_redis):
