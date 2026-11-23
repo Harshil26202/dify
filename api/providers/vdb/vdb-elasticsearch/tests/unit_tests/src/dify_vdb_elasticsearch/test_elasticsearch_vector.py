@@ -221,15 +221,21 @@ def test_crud_methods_and_get_type(elasticsearch_module):
     vector.delete_by_ids(["id-1", "id-2"])
     assert vector._client.delete.call_count == 2
 
-    vector._client.search.return_value = {"hits": {"hits": [{"_id": "id-1"}]}}
-    vector.delete_by_ids = MagicMock()
-    vector.delete_by_metadata_field("doc_id", "d1")
-    vector.delete_by_ids.assert_called_once_with(["id-1"])
-
-    vector.delete_by_ids.reset_mock()
-    vector._client.search.return_value = {"hits": {"hits": []}}
-    vector.delete_by_metadata_field("doc_id", "d2")
-    vector.delete_by_ids.assert_not_called()
+    vector.delete_by_metadata_field("annotation_id", "a1")
+    vector._client.delete_by_query.assert_called_once_with(
+        index="collection_1",
+        query={
+            "bool": {
+                "should": [
+                    {"term": {"metadata.annotation_id": "a1"}},
+                    {"term": {"metadata.annotation_id.keyword": "a1"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+        refresh=True,
+    )
+    vector._client.search.assert_not_called()
 
     vector.delete()
     vector._client.indices.delete.assert_called_once_with(index="collection_1")

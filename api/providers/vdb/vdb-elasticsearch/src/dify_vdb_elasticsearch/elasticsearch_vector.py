@@ -188,11 +188,23 @@ class ElasticSearchVector(BaseVector):
 
     @override
     def delete_by_metadata_field(self, key: str, value: str):
-        query_str = {"query": {"match": {f"metadata.{key}": f"{value}"}}}
-        results = self._client.search(index=self._collection_name, body=query_str)
-        ids = [hit["_id"] for hit in results["hits"]["hits"]]
-        if ids:
-            self.delete_by_ids(ids)
+        # Match the whole value. doc_id and document_id are keyword fields, while other keys such as
+        # annotation_id and app_id get the dynamic mapping (an analyzed text field with a keyword
+        # subfield), where a match query would also hit values that share a token, like part of a UUID.
+        # delete_by_query removes every match, not only the first page of a search.
+        self._client.delete_by_query(
+            index=self._collection_name,
+            query={
+                "bool": {
+                    "should": [
+                        {"term": {f"{Field.METADATA_KEY}.{key}": value}},
+                        {"term": {f"{Field.METADATA_KEY}.{key}.keyword": value}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            },
+            refresh=True,
+        )
 
     @override
     def delete(self) -> None:
